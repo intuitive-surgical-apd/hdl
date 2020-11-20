@@ -453,6 +453,8 @@ module axi_ad9361_lvds_if #(
     .FPGA_TECHNOLOGY (FPGA_TECHNOLOGY),
     .IODELAY_CTRL (0),
     .IODELAY_GROUP (IO_DELAY_GROUP),
+    .IODELAY_ENABLE (0),
+    .IDELAY_VALUE (16),
     .REFCLK_FREQUENCY (DELAY_REFCLK_FREQUENCY))
   i_rx_data (
     .rx_clk (l_clk),
@@ -476,6 +478,8 @@ module axi_ad9361_lvds_if #(
     .FPGA_TECHNOLOGY (FPGA_TECHNOLOGY),
     .IODELAY_CTRL (1),
     .IODELAY_GROUP (IO_DELAY_GROUP),
+    .IODELAY_ENABLE (0),
+    .IDELAY_VALUE (16),
     .REFCLK_FREQUENCY (DELAY_REFCLK_FREQUENCY))
   i_rx_frame (
     .rx_clk (l_clk),
@@ -490,6 +494,7 @@ module axi_ad9361_lvds_if #(
     .delay_clk (delay_clk),
     .delay_rst (delay_rst),
     .delay_locked (locked_s));
+    // .delay_locked ());
 
   // transmit data interface, oddr -> obuf
 
@@ -609,13 +614,23 @@ module axi_ad9361_lvds_if #(
 
   // device clock interface (receive clock)
   generate if (USE_SSI_CLK == 1) begin
-  ad_data_clk
-  i_clk (
-    .rst (1'd0),
-    .locked (),
-    .clk_in_p (rx_clk_in_p),
-    .clk_in_n (rx_clk_in_n),
-    .clk (l_clk));
+    ad_data_clk #(
+      .FPGA_TECHNOLOGY (FPGA_TECHNOLOGY),
+      .IODELAY_CTRL (0),
+      .IODELAY_GROUP (IO_DELAY_GROUP),
+      .IODELAY_ENABLE (0),
+      .IDELAY_VALUE (16),
+      .REFCLK_FREQUENCY (DELAY_REFCLK_FREQUENCY) )
+    i_clk (
+      .rst (1'd0),
+      .locked (),
+      .clk_in_p (rx_clk_in_p),
+      .clk_in_n (rx_clk_in_n),
+      .clk (l_clk),
+      .delay_clk (delay_clk),
+      .delay_rst (delay_rst),
+      // .delay_locked (locked_s));
+      .delay_locked ());
   end else begin
     assign l_clk = clk;
   end

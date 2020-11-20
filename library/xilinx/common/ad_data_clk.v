@@ -37,24 +37,130 @@
 
 module ad_data_clk #(
 
-  parameter   SINGLE_ENDED = 0) (
+  parameter   SINGLE_ENDED = 0,
+  parameter   FPGA_TECHNOLOGY = 0,
+  parameter   IODELAY_ENABLE = 1,
+  parameter   IODELAY_CTRL = 0,
+  parameter   IODELAY_GROUP = "dev_if_delay_group",
+  parameter   IDELAY_VALUE = 0,
+  parameter   REFCLK_FREQUENCY = 200
+  ) (
 
   input               rst,
   output              locked,
 
   input               clk_in_p,
   input               clk_in_n,
-  output              clk);
+  output              clk,
+
+  // delay-cntrl interface
+
+  input               delay_clk,
+  input               delay_rst,
+  output              delay_locked);
+
+  // internal parameters
+
+  localparam  NONE = -1;
+  localparam  SEVEN_SERIES = 1;
+  localparam  ULTRASCALE = 2;
+  localparam  ULTRASCALE_PLUS = 3;
+
+  localparam  IODELAY_CTRL_ENABLED = (IODELAY_ENABLE == 1) ? IODELAY_CTRL : 0;
+  localparam  IODELAY_CTRL_SIM_DEVICE = (FPGA_TECHNOLOGY == ULTRASCALE_PLUS) ? "ULTRASCALE" :
+    (FPGA_TECHNOLOGY == ULTRASCALE) ? "ULTRASCALE" : "7SERIES";
+
+  localparam  IODELAY_FPGA_TECHNOLOGY = (IODELAY_ENABLE == 1) ? FPGA_TECHNOLOGY : NONE;
+  localparam  IODELAY_SIM_DEVICE = (FPGA_TECHNOLOGY == ULTRASCALE_PLUS) ? "ULTRASCALE_PLUS" :
+    (FPGA_TECHNOLOGY == ULTRASCALE) ? "ULTRASCALE" : "7SERIES";
 
   // internal signals
 
   wire                clk_ibuf_s;
+  wire                clk_ibuf_delay;
 
   // defaults
 
   assign locked = 1'b1;
 
   // instantiations
+
+  // delay controller
+
+  generate
+  if (IODELAY_CTRL_ENABLED == 0) begin
+  assign delay_locked = 1'b1;
+  end else begin
+  (* IODELAY_GROUP = IODELAY_GROUP *)
+  IDELAYCTRL #(.SIM_DEVICE (IODELAY_CTRL_SIM_DEVICE)) i_delay_ctrl (
+    .RST (delay_rst),
+    .REFCLK (delay_clk),
+    .RDY (delay_locked));
+  end
+  endgenerate
+
+  generate
+  if (IODELAY_FPGA_TECHNOLOGY == SEVEN_SERIES) begin
+    (* IODELAY_GROUP = IODELAY_GROUP *)
+    IDELAYE2 #(
+      .CINVCTRL_SEL ("FALSE"),
+      .DELAY_SRC ("IDATAIN"),
+      .HIGH_PERFORMANCE_MODE ("FALSE"),
+      .IDELAY_TYPE ("FIXED"),
+      .IDELAY_VALUE (IDELAY_VALUE),
+      .REFCLK_FREQUENCY (REFCLK_FREQUENCY),
+      .PIPE_SEL ("FALSE"),
+      .SIGNAL_PATTERN ("DATA"))
+    i_rx_data_idelay (
+      .CE (1'b0),
+      .INC (1'b0),
+      .DATAIN (1'b0),
+      .LDPIPEEN (1'b0),
+      .CINVCTRL (1'b0),
+      .REGRST (1'b0),
+      .C (1'b0),
+      .IDATAIN (clk_ibuf_s),
+      .DATAOUT (clk_ibuf_delay),
+      .LD (1'b0),
+      .CNTVALUEIN ('b0),
+      .CNTVALUEOUT ('b0));
+  end
+  endgenerate
+
+  generate
+  if ((IODELAY_FPGA_TECHNOLOGY == ULTRASCALE) || (IODELAY_FPGA_TECHNOLOGY == ULTRASCALE_PLUS)) begin
+  (* IODELAY_GROUP = IODELAY_GROUP *)
+  IDELAYE3 #(
+    .SIM_DEVICE (IODELAY_SIM_DEVICE),
+    .DELAY_SRC ("IDATAIN"),
+    .DELAY_TYPE ("FIXED"),
+    .DELAY_VALUE (IDELAY_VALUE),
+    .REFCLK_FREQUENCY (REFCLK_FREQUENCY),
+    .DELAY_FORMAT ("COUNT"))
+  i_rx_data_idelay (
+    .CASC_RETURN (1'b0),
+    .CASC_IN (1'b0),
+    .CASC_OUT (),
+    .CE (1'b0),
+    .CLK (1'b0),
+    .INC (1'b0),
+    .LOAD (1'b0),
+    .CNTVALUEIN ('b0),
+    .CNTVALUEOUT ('b0),
+    .DATAIN (1'b0),
+    .IDATAIN (clk_ibuf_s),
+    .DATAOUT (clk_ibuf_delay),
+    .RST (1'b0),
+    .EN_VTC (1'b0));
+  end
+  endgenerate
+
+  generate
+  if (IODELAY_FPGA_TECHNOLOGY == NONE) begin
+    assign clk_ibuf_delay = clk_ibuf_s;
+  end
+  endgenerate
+
 
   generate
   if (SINGLE_ENDED == 1) begin
@@ -70,7 +176,7 @@ module ad_data_clk #(
   endgenerate
 
   BUFG i_clk_gbuf (
-    .I (clk_ibuf_s),
+    .I (clk_ibuf_delay),
     .O (clk));
 
 endmodule

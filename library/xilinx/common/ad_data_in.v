@@ -44,6 +44,7 @@ module ad_data_in #(
   parameter   IODELAY_ENABLE = 1,
   parameter   IODELAY_CTRL = 0,
   parameter   IODELAY_GROUP = "dev_if_delay_group",
+  parameter   IDELAY_VALUE = 0,
   parameter   REFCLK_FREQUENCY = 200) (
 
   // data interface
@@ -126,8 +127,8 @@ module ad_data_in #(
     .CINVCTRL_SEL ("FALSE"),
     .DELAY_SRC ("IDATAIN"),
     .HIGH_PERFORMANCE_MODE ("FALSE"),
-    .IDELAY_TYPE ("VAR_LOAD"),
-    .IDELAY_VALUE (0),
+    .IDELAY_TYPE ("FIXED"),
+    .IDELAY_VALUE (IDELAY_VALUE),
     .REFCLK_FREQUENCY (REFCLK_FREQUENCY),
     .PIPE_SEL ("FALSE"),
     .SIGNAL_PATTERN ("DATA"))
